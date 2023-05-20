@@ -3,45 +3,53 @@ import matplotlib.pyplot as plt
 import math
 
 
-def task1(u, t, w):
+def task1(u, t, w, **kwargs):
     u1, u2 = u[0], u[1]
     a = 2.5 + w / 40
     return np.array([-u1 * u2 + math.sin(t) / t, -(u2 ** 2) + a * t / (1 + t ** 2)])
 
 
-def task2(u, t, a, k):
+def task2(u, a, k, **kwargs):
     u1, u2 = u[0], u[1]
     return np.array([u2 - u1 * (a * u1 + k * u2), math.exp(u1) - u1 * (u1 + a * u2)])
 
 
-def task3(u, t, a, k):
+def task3(u, a, k, **kwargs):
     u1, u2, u3 = u[0], u[1], u[2]
     return np.array([u2 * u3 * (k - a) / a, u1 * u3 * (a + k) / k, u1 * u2 * (a - k) / a])
 
 
-def f_for_newton(task_func, x, y, t, tau_k, *args, **kwargs):
-    return x - y[1] - tau_k * task_func(x, t, *args, **kwargs)
+def f_for_newton(task_func, x, y, a0, a1, b0, *args, **kwargs):
+    return x - a1 * y[0] - a0 * y[1] - b0 * task_func(x, *args, **kwargs)
 
 
 def jacobi_for_task1(x, t, tau_k, *args, **kwargs):
     u1, u2 = x[0], x[1]
-    return np.array([[1 + 2 * u2 * tau_k, -u1 * tau_k], [0, 1 + u2 * tau_k]]) / \
-           (1 + 3 * u2 * tau_k + 2 * u2 ** 2 * tau_k ** 2)
+    det = 1 + 3 * u2 * tau_k + 2 * u2 ** 2 * tau_k ** 2
+    return np.array([[1 + 2 * u2 * tau_k, -u1 * tau_k], [0, 1 + u2 * tau_k]]) / det
 
 
 def jacobi_for_task2(x, t, tau_k, a, k,  *args, **kwargs):
     u1, u2 = x[0], x[1]
+    det = 1 + tau_k * (3 * u1 * a + k * u2) + tau_k ** 2 * ((u1 * k - 1) * (math.exp(u1) - 2 * u1) + a *
+                                                            (u2 + 2 * u1 * a))
     return np.array([[1 + u1 * tau_k * a, tau_k - u1 * tau_k * k],
                      [tau_k * math.exp(u1) - 2 * u1 * tau_k - a * u2 * tau_k,
-                      1 + 2 * u1 * tau_k * a + u2 * tau_k * k]]) / (
-            1 + tau_k * (3 * u1 * a + k * u2) + tau_k ** 2 * ((u1 * k - 1) * (math.exp(u1) - 2 * u1) +
-                                                              a * (u2 + 2 * u1 * a)))
+                      1 + 2 * u1 * tau_k * a + u2 * tau_k * k]]) / det
 
 
-# def jacobi_for_task3(x, t, tau_k, *args, **kwargs):
-#     u1, u2 = x[0], x[1]
-#     return np.array([[1 + 2 * u2 * tau_k, -u1 * tau_k], [0, 1 + u2 * tau_k]]) / \
-#            (1 + 3 * u2 * tau_k + 2 * u2 ** 2 * tau_k ** 2)
+def jacobi_for_task3(x, t, tau_k, a, k,  *args, **kwargs):
+    u1, u2, u3 = x[0], x[1], x[2]
+    b1 = (a + k) / k
+    b2 = (a - k) / a
+    det = 1 + 2 * b2 ** 2 * b1 * u1 * u2 * u3 * tau_k ** 3 + (b2 * u2 * tau_k) ** 2 - b2 * b1 * (u1 ** 2 - u3 ** 2) *\
+          tau_k ** 2
+    return np.array([[1 - b1 * b2 * u1 ** 2 * tau_k ** 2, -b2 * u3 * tau_k - b2 ** 2 * u1 * u2 * tau_k ** 2,
+                      b1 * -b2 * u1 * u3 * tau_k ** 2 - b2 * u2 * tau_k],
+                     [b1 * u3 * tau_k + b1 * b2 * u1 * u2 * tau_k ** 2, 1 + (b2 * u2 * tau_k) ** 2,
+                      b1 * u1 * tau_k - b2 * b1 * u2 * u3 * tau_k ** 2],
+                     [b1 * b2 * u1 * u3 * tau_k ** 2 + b2 * u2 * tau_k,
+                      b2 * u1 * tau_k - b2 ** 2 * u2 * u3 * tau_k ** 2, 1 + b2 * b1 * u3 ** 2 * tau_k ** 2]]) / det
 
 
 def chart(title, method, *args, **kwargs):
@@ -56,6 +64,7 @@ def chart(title, method, *args, **kwargs):
     plt.xlabel("t", fontsize=14)
     plt.ylabel("y", fontsize=14)
     plt.title(title)
+    plt.savefig(f"Charts\\{title}.svg".replace("\n", " "))
     plt.show()
 
 
@@ -67,7 +76,8 @@ def euler_explicit(func, u0, interval, eps, tau_interval, *args, **kwargs):
     i = 1
     xs, ys = list(), [[] for _ in range(len(y))]
     while t < t_end:
-        f = func(y, t, *args, **kwargs)
+        kwargs.update({"t": t})
+        f = func(y, *args, **kwargs)
         tau = np.amin(eps / (abs(f) + eps / tau_max))
         y += tau * f
         t += tau
@@ -115,18 +125,11 @@ def euler_implicit(newton_func, jacobi_func, u0, interval, eps, tau_interval, pr
     tau_max = tau_interval[1]
     i = 1
     xs, ys = list(), [[] for _ in range(len(u0))]
-    flag = False
-    while t < t_end or flag:
-        flag = False
+    while t < t_end:
         t += tau[1]
-        y[2] = newton(newton_func, jacobi_func, y[2], err1=eps, err2=eps, y=y, t=t, tau_k=tau[1],
+        y[2] = newton(newton_func, jacobi_func, y[2], err1=eps, err2=eps, y=y, t=t, a0=1, a1=0, b0=tau[1], tau_k=tau[1],
                       *args, **kwargs)
         eps_k = -tau[1] * (y[2] - y[1] - tau[1] * (y[1] - y[0]) / tau[0]) / (tau[1] + tau[0])
-        # if abs(eps_k).all() > eps:
-        #     tau[1] /= 2
-        #     y[2] = y[1]
-        #     flag = True
-        #     continue
         eps_k = np.amin(eps_k)
         if abs(eps_k) > eps:
             tau[2] = tau[1] / 2
@@ -140,22 +143,67 @@ def euler_implicit(newton_func, jacobi_func, u0, interval, eps, tau_interval, pr
             print(f"{i}: {y[2]} {t}")
         xs.append(t)
         for j in range(len(u0)):
-            ys[j].append(y[2])
+            ys[j].append(y[2][j])
+        y[0], y[1], tau[0], tau[1] = y[1], y[2], tau[1], tau[2]
+        i += 1
+    return xs, ys
+
+
+def shikhman(newton_func, jacobi_func, u0, interval, eps, tau_interval, print_ever=1, *args, **kwargs):
+    t = interval[0]
+    t_end = interval[1]
+    y = [u0] * 3
+    tau = [tau_interval[0], tau_interval[0], None]
+    tau_max = tau_interval[1]
+    i = 1
+    xs, ys = list(), [[] for _ in range(len(u0))]
+    while t < t_end:
+        t += tau[1]
+        if i == 1 or i == 2:
+            y[2] = newton(newton_func, jacobi_func, y[2], err1=eps, err2=eps, y=y, t=t, a0=1, a1=0, b0=tau[1],
+                          tau_k=tau[1], *args, **kwargs)
+        else:
+            a0 = (tau[1] + tau[0]) ** 2 / tau[0] / (2 * tau[1] + tau[0])
+            a1 = - tau[1] ** 2 / tau[0] / (2 * tau[1] + tau[0])
+            b0 = tau[1] * (tau[1] + tau[0]) / (2 * tau[1] + tau[0])
+            y[2] = newton(newton_func, jacobi_func, y[2], err1=eps, err2=eps, y=y, t=t, a0=a0, a1=a1, b0=b0,
+                          tau_k=tau[1], *args, **kwargs)
+        eps_k = -tau[1] * (y[2] - y[1] - tau[1] * (y[1] - y[0]) / tau[0]) / (tau[1] + tau[0])
+        eps_k = np.amin(eps_k)
+        if abs(eps_k) > eps:
+            tau[2] = tau[1] / 2
+        elif eps / 4 < abs(eps_k) <= eps:
+            tau[2] = tau[1]
+        else:
+            tau[2] = 2 * tau[1]
+        if tau[2] > tau_max:
+            tau[2] = tau_max
+        if i % print_ever == 0:
+            print(f"{i}: {y[2]} {t}")
+        xs.append(t)
+        for j in range(len(u0)):
+            ys[j].append(y[2][j])
         y[0], y[1], tau[0], tau[1] = y[1], y[2], tau[1], tau[2]
         i += 1
     return xs, ys
 
 
 if __name__ == '__main__':
-    # chart("Явный метод Эйлера\nЗадача 1", euler_explicit, task1,
-    #       np.array([0.0, -0.412]), (0.001, 1), 1e-3, (0.001, 0.1), w=25)
-    # chart("Явный метод Эйлера\nЗадача 2", euler_explicit, task2,
-    #       np.array([1.0, 0.0]), (0.001, 1), 1e-3, (0.001, 0.1), a=2, k=0.25)
-    # chart("Явный метод Эйлера\nЗадача 3", euler_explicit, task3,
-    #       np.array([1.0, 1.0, 1.0]), (0.001, 1), 1e-3, (0.001, 0.1), a=2, k=0.25)
+    chart("Явный метод Эйлера\nЗадача 1", euler_explicit, task1,
+          np.array([0.0, -0.412]), (0.001, 1), 1e-3, (0.001, 0.1), w=25)
+    chart("Явный метод Эйлера\nЗадача 2", euler_explicit, task2,
+          np.array([1.0, 0.0]), (0.001, 1), 1e-3, (0.001, 0.1), a=2, k=0.25)
+    chart("Явный метод Эйлера\nЗадача 3", euler_explicit, task3,
+          np.array([1.0, 1.0, 1.0]), (0.001, 1), 1e-3, (0.001, 0.1), a=2, k=0.25)
     chart("Неявный метод Эйлера\nЗадача 1", euler_implicit, f_for_newton, jacobi_for_task1,
           np.array([0.0, -0.412]), (0, 1), 1e-3, (0.001, 0.1), print_ever=1, task_func=task1, w=25)
     chart("Неявный метод Эйлера\nЗадача 2", euler_implicit, f_for_newton, jacobi_for_task2,
           np.array([1.0, 0.0]), (0, 1), 1e-3, (0.001, 0.1), print_ever=1, task_func=task2, a=2, k=0.25)
-    # chart("Неявный метод Эйлера\nЗадача 3", euler_implicit, f_for_newton, jacobi_for_task3,
-    #       np.array([1.0, 1.0, 1.0]), (0.001, 1), 1e-3, (0.001, 0.1), print_ever=1, task_func=task3, a=2, k=0.25)
+    chart("Неявный метод Эйлера\nЗадача 3", euler_implicit, f_for_newton, jacobi_for_task3,
+          np.array([1.0, 1.0, 1.0]), (0.001, 1), 1e-3, (0.001, 0.1), print_ever=1, task_func=task3, a=2, k=0.25)
+    chart("Метод Шихмана\nЗадача 1", shikhman, f_for_newton, jacobi_for_task1,
+          np.array([0.0, -0.412]), (0, 1), 1e-3, (0.001, 0.1), print_ever=1, task_func=task1, w=25)
+    chart("Метод Шихмана\nЗадача 2", shikhman, f_for_newton, jacobi_for_task2,
+          np.array([1.0, 0.0]), (0, 1), 1e-3, (0.001, 0.1), print_ever=1, task_func=task2, a=2, k=0.25)
+    chart("Метод Шихмана\nЗадача 3", shikhman, f_for_newton, jacobi_for_task3,
+          np.array([1.0, 1.0, 1.0]), (0.001, 1), 1e-3, (0.001, 0.1), print_ever=1, task_func=task3, a=2, k=0.25)
