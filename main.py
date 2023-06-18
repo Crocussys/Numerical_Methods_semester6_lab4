@@ -52,12 +52,11 @@ def jacobi_for_task3(x, t, tau_k, a, k,  *args, **kwargs):
                       b2 * u1 * tau_k - b2 ** 2 * u2 * u3 * tau_k ** 2, 1 + b2 * b1 * u3 ** 2 * tau_k ** 2]]) / det
 
 
-def chart(title, method, *args, **kwargs):
+def chart(title, xs, ys):
     fig, ax = plt.subplots()
-    f = method(*args, **kwargs)
-    xs, ys = f[0], f[1]
     for i in range(len(ys)):
-        ax.plot(xs, ys[i], label=f"u{i + 1}")
+        for j in range(len(ys[i])):
+            ax.plot(xs, ys[i][j], label=f"Task {i + 1} u{j + 1}")
     ax.grid(which='major', color='gray')
     ax.grid(which='minor', color='gray', linestyle=':')
     ax.legend()
@@ -188,22 +187,49 @@ def shikhman(newton_func, jacobi_func, u0, interval, eps, tau_interval, print_ev
     return xs, ys
 
 
+def combine_answers(new_xs, new_ys, xs=None, ys=None):
+    if ys is None:
+        return new_xs, [new_ys]
+    size_xs = len(xs)
+    size_new_xs = len(new_xs)
+    if size_new_xs < size_xs:
+        for _ in range(size_xs - size_new_xs):
+            new_xs.append(None)
+    elif size_new_xs > size_xs:
+        for _ in range(size_new_xs - size_xs):
+            xs.append(None)
+            for i in range(len(ys)):
+                for j in range(len(ys[0])):
+                    ys[i][j].append(None)
+    ys.append(new_ys)
+    return xs, ys
+
+
 if __name__ == '__main__':
-    chart("Явный метод Эйлера\nЗадача 1", euler_explicit, task1,
-          np.array([0.0, -0.412]), (0.001, 1), 1e-3, (0.001, 0.1), w=25)
-    chart("Явный метод Эйлера\nЗадача 2", euler_explicit, task2,
-          np.array([1.0, 0.0]), (0.001, 1), 1e-3, (0.001, 0.1), a=2, k=0.25)
-    chart("Явный метод Эйлера\nЗадача 3", euler_explicit, task3,
-          np.array([1.0, 1.0, 1.0]), (0.001, 1), 1e-3, (0.001, 0.1), a=2, k=0.25)
-    chart("Неявный метод Эйлера\nЗадача 1", euler_implicit, f_for_newton, jacobi_for_task1,
-          np.array([0.0, -0.412]), (0, 1), 1e-3, (0.001, 0.1), print_ever=1, task_func=task1, w=25)
-    chart("Неявный метод Эйлера\nЗадача 2", euler_implicit, f_for_newton, jacobi_for_task2,
-          np.array([1.0, 0.0]), (0, 1), 1e-3, (0.001, 0.1), print_ever=1, task_func=task2, a=2, k=0.25)
-    chart("Неявный метод Эйлера\nЗадача 3", euler_implicit, f_for_newton, jacobi_for_task3,
-          np.array([1.0, 1.0, 1.0]), (0.001, 1), 1e-3, (0.001, 0.1), print_ever=1, task_func=task3, a=2, k=0.25)
-    chart("Метод Шихмана\nЗадача 1", shikhman, f_for_newton, jacobi_for_task1,
-          np.array([0.0, -0.412]), (0, 1), 1e-3, (0.001, 0.1), print_ever=1, task_func=task1, w=25)
-    chart("Метод Шихмана\nЗадача 2", shikhman, f_for_newton, jacobi_for_task2,
-          np.array([1.0, 0.0]), (0, 1), 1e-3, (0.001, 0.1), print_ever=1, task_func=task2, a=2, k=0.25)
-    chart("Метод Шихмана\nЗадача 3", shikhman, f_for_newton, jacobi_for_task3,
-          np.array([1.0, 1.0, 1.0]), (0.001, 1), 1e-3, (0.001, 0.1), print_ever=1, task_func=task3, a=2, k=0.25)
+    xss1, yss1 = euler_explicit(task1, np.array([0.0, -0.412]), (0.001, 1), 1e-3, (0.001, 0.1), w=25)
+    xss, yss = combine_answers(xss1, yss1)
+    xss2, yss2 = euler_explicit(task1, np.array([0.0, -0.412]), (0.001, 1), 1e-3, (0.001, 0.1), w=48)
+    xss, yss = combine_answers(xss2, yss2, xss, yss)
+    chart("Явный метод Эйлера\nЗадача 1", xss, yss)
+    xss, yss = euler_explicit(task2, np.array([1.0, 0.0]), (0.001, 1), 1e-3, (0.001, 0.1), a=2, k=0.25)
+    chart("Явный метод Эйлера\nЗадача 2", xss, [yss])
+    xss, yss = euler_explicit(task3, np.array([1.0, 1.0, 1.0]), (0.001, 1), 1e-3, (0.001, 0.1), a=2, k=0.25)
+    chart("Явный метод Эйлера\nЗадача 3", xss, [yss])
+    xss, yss = euler_implicit(f_for_newton, jacobi_for_task1, np.array([0.0, -0.412]), (0, 1), 1e-3, (0.001, 0.1),
+                              print_ever=1, task_func=task1, w=25)
+    chart("Неявный метод Эйлера\nЗадача 1", xss, [yss])
+    xss, yss = euler_implicit(f_for_newton, jacobi_for_task2, np.array([1.0, 0.0]), (0, 1), 1e-3, (0.001, 0.1),
+                              print_ever=1, task_func=task2, a=2, k=0.25)
+    chart("Неявный метод Эйлера\nЗадача 2", xss, [yss])
+    xss, yss = euler_implicit(f_for_newton, jacobi_for_task3, np.array([1.0, 1.0, 1.0]), (0.001, 1), 1e-3, (0.001, 0.1),
+                              print_ever=1, task_func=task3, a=2, k=0.25)
+    chart("Неявный метод Эйлера\nЗадача 3", xss, [yss])
+    xss, yss = shikhman(f_for_newton, jacobi_for_task1, np.array([0.0, -0.412]), (0, 1), 1e-3, (0.001, 0.1),
+                        print_ever=1, task_func=task1, w=25)
+    chart("Метод Шихмана\nЗадача 1", xss, [yss])
+    xss, yss = shikhman(f_for_newton, jacobi_for_task2, np.array([1.0, 0.0]), (0, 1), 1e-3, (0.001, 0.1), print_ever=1,
+                        task_func=task2, a=2, k=0.25)
+    chart("Метод Шихмана\nЗадача 2", xss, [yss])
+    xss, yss = shikhman(f_for_newton, jacobi_for_task3, np.array([1.0, 1.0, 1.0]), (0.001, 1), 1e-3, (0.001, 0.1),
+                        print_ever=1, task_func=task3, a=2, k=0.25)
+    chart("Метод Шихмана\nЗадача 3", xss, [yss])
